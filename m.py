@@ -9,6 +9,7 @@ import json
 from discord.ui import Button, View
 import asyncio
 from datetime import datetime, timedelta
+from collections import Counter
 
 # Initialize bot
 intents = discord.Intents.default()
@@ -40,6 +41,8 @@ intents.messages = True
 intents.dm_messages = True
 tree = bot.tree  # For slash commands
 closing_threads = {}
+afk_users = {}
+active_polls = {}
 
 # Bot setup
 class MyBot(commands.Bot):
@@ -5052,6 +5055,138 @@ async def fact(interaction: discord.Interaction):
     
     # Respond to the interaction with the selected fact
     await interaction.response.send_message(selected_fact)
+
+#afk command
+
+@bot.tree.command(name="afk", description="Set your AFK status with a custom message")
+@app_commands.describe(message="The AFK message you want to set")
+async def afk(interaction: discord.Interaction, message: str = "I am currently away from keyboard."):
+    user = interaction.user
+    # Set the user's AFK status
+    afk_users[user.id] = message
+    
+    await interaction.response.send_message(f"You're now AFK! Message: '{message}'")
+
+@bot.event
+async def on_message(message):
+    # Check if the message author is AFK
+    if message.author.id in afk_users:
+        afk_message = afk_users[message.author.id]
+        await message.channel.send(f"{message.author.mention} is AFK: {afk_message}")
+        
+        # Optionally remove the AFK status after the user sends a message
+        del afk_users[message.author.id]
+
+    await bot.process_commands(message)
+
+#poll Command
+
+@bot.tree.command(name="poll", description="Create a timed poll for server members")
+@app_commands.describe(
+    question="The question for the poll",
+    duration="Duration in seconds for the poll to remain active",
+    option1="First option",
+    option2="Second option",
+    option3="Third option (optional)",
+    option4="Fourth option (optional)",
+    option5="Fifth option (optional)",
+    option6="Sixth option (optional)",
+    option7="Seventh option (optional)",
+    option8="Eighth option (optional)",
+    option9="Ninth option (optional)",
+    option10="Tenth option (optional)",
+    option11="Eleventh option (optional)",
+    option12="Twelfth option (optional)",
+    option13="Thirteenth option (optional)",
+    option14="Fourteenth option (optional)",
+    option15="Fifteenth option (optional)"
+)
+async def poll(
+    interaction: discord.Interaction,
+    question: str,
+    duration: int,
+    option1: str,
+    option2: str,
+    option3: str = None,
+    option4: str = None,
+    option5: str = None,
+    option6: str = None,
+    option7: str = None,
+    option8: str = None,
+    option9: str = None,
+    option10: str = None,
+    option11: str = None,
+    option12: str = None,
+    option13: str = None,
+    option14: str = None,
+    option15: str = None
+):
+    # Collect options into a list
+    options = [opt for opt in [option1, option2, option3, option4, option5, option6,
+                               option7, option8, option9, option10, option11, option12,
+                               option13, option14, option15] if opt is not None]
+
+    if len(options) < 2:
+        await interaction.response.send_message("You need at least two options to create a poll!", ephemeral=True)
+        return
+
+    if duration <= 0:
+        await interaction.response.send_message("The duration must be greater than zero seconds!", ephemeral=True)
+        return
+
+    # Create the poll embed
+    embed = discord.Embed(title="📊 Poll", description=question, color=0x00ff00)
+    for i, option in enumerate(options, start=1):
+        embed.add_field(name=f"Option {i}", value=option, inline=False)
+
+    # Send the poll message
+    poll_message = await interaction.channel.send(embed=embed)
+    active_polls[poll_message.id] = {"options": options, "votes": Counter()}
+
+    # Notify the creator
+    await interaction.response.send_message(
+        f"Poll created! It will remain active for {duration} seconds. Users can vote by typing their choice in the chat.", 
+        ephemeral=True
+    )
+
+    # Wait for the poll to expire
+    await asyncio.sleep(duration)
+
+    # Close the poll and tally the results
+    poll_data = active_polls.pop(poll_message.id, None)
+    if poll_data:
+        # Create the results embed
+        results_embed = discord.Embed(title="📊 Poll Results", description=f"Results for: {question}", color=0x00ff00)
+        total_votes = sum(poll_data["votes"].values())
+        for i, option in enumerate(poll_data["options"], start=1):
+            vote_count = poll_data["votes"][option]
+            percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
+            results_embed.add_field(name=f"Option {i}", value=f"{option}: {vote_count} votes ({percentage:.1f}%)", inline=False)
+
+        await poll_message.reply(embed=results_embed)
+
+@bot.event
+async def on_message(message):
+    # Ignore bot messages
+    if message.author.bot:
+        return
+
+    # Check if the message matches any active poll options
+    for poll_id, poll_data in list(active_polls.items()):
+        if poll_id == message.channel.last_message_id:  # Check if this is part of an active poll
+            user_vote = message.content.strip()
+            options = poll_data["options"]
+
+            if user_vote in options:
+                poll_data["votes"][user_vote] += 1
+                await message.channel.send(f"Vote registered for {user_vote} by {message.author.mention}!")
+                return
+
+            # Invalid vote
+            await message.channel.send(f"{message.author.mention}, that's not a valid option!")
+            return
+
+
 
 
 #---------------------------------------FUN COMMANDS------------------------------------------------------------------------------------------------------------------------
