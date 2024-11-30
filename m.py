@@ -1,15 +1,16 @@
 import discord
 import logging
-from discord.ext import commands, tasks
-from discord import app_commands, Interaction
 import os
-from dotenv import load_dotenv
 import random
 import json
-from discord.ui import Button, View
 import asyncio
-from datetime import datetime, timedelta
+import webcolors
 from collections import Counter
+from datetime import datetime, timedelta
+from discord.ui import Button, View
+from dotenv import load_dotenv
+from discord.ext import commands, tasks
+from discord import app_commands, Interaction
 
 # Initialize bot
 intents = discord.Intents.default()
@@ -43,6 +44,8 @@ tree = bot.tree  # For slash commands
 closing_threads = {}
 afk_users = {}
 active_polls = {}
+streaks = {}
+
 
 # Bot setup
 class MyBot(commands.Bot):
@@ -5185,6 +5188,38 @@ async def on_message(message):
             # Invalid vote
             await message.channel.send(f"{message.author.mention}, that's not a valid option!")
             return
+
+# Helper function to generate a random HEX color
+def generate_random_color():
+    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+# Helper function to get the closest color name or fallback
+def get_color_name(hex_color):
+    try:
+        # Try to get the exact color name
+        color_name = webcolors.hex_to_name(hex_color)
+    except ValueError:
+        # If no exact match, find the closest named color
+        closest_color_name = webcolors.rgb_to_name(webcolors.hex_to_rgb(hex_color), spec='css3')
+        color_name = f"a unique shade, close to {closest_color_name}"
+    return color_name
+
+@bot.tree.command(name="color", description="Generates a random color with its HEX code!")
+async def color(interaction: discord.Interaction):
+    hex_color = generate_random_color()  # Generate a random HEX code
+    color_value = int(hex_color[1:], 16)  # Convert HEX to integer for embed color
+    color_name = get_color_name(hex_color)  # Get the color name or closest match
+
+    # Create an embed to display the color
+    embed = discord.Embed(
+        title="🎨 Random Color",
+        description=f"Here’s your random color:\n**HEX Code:** `{hex_color}`\n\n> **\"{color_name.capitalize()}\"**",
+        color=color_value
+    )
+    embed.set_thumbnail(url=f"https://singlecolorimage.com/get/{hex_color[1:]}/100x100")  # Visualize the color
+
+    # Send the embed
+    await interaction.response.send_message(embed=embed)
 
 
 
