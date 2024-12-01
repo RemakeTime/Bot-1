@@ -5,6 +5,7 @@ import random
 import json
 import asyncio
 import webcolors
+import aiohttp
 from collections import Counter
 from datetime import datetime, timedelta
 from discord.ui import Button, View
@@ -5220,6 +5221,156 @@ async def color(interaction: discord.Interaction):
 
     # Send the embed
     await interaction.response.send_message(embed=embed)
+
+#Anime Command
+
+@bot.tree.command(name="anime", description="Search for an anime by name or ID")
+async def anime(interaction: discord.Interaction, search_criteria: str):
+    await interaction.response.defer()  # Let the user know we're working on it
+
+    # AniList GraphQL query
+    query = """
+    query ($search: String) {
+      Media(search: $search, type: ANIME) {
+        title {
+          romaji
+        }
+        description
+        coverImage {
+          large
+        }
+        siteUrl
+        type
+        status
+        episodes
+        duration
+        genres
+        popularity
+        averageScore
+        season
+        format
+        favourites
+      }
+    }
+    """
+    variables = {"search": search_criteria}
+
+    # Fetch data from AniList
+    async with aiohttp.ClientSession() as session:
+        async with session.post("https://graphql.anilist.co", json={"query": query, "variables": variables}) as response:
+            if response.status != 200:
+                await interaction.followup.send("Failed to fetch data from AniList 😢")
+                return
+
+            data = await response.json()
+            anime = data.get("data", {}).get("Media", None)
+
+            if not anime:
+                await interaction.followup.send("No anime found with that search criteria.")
+                return
+
+            # Build the Embed
+            embed = discord.Embed(
+                title=anime["title"]["romaji"],
+                url=anime["siteUrl"],  # This makes the title clickable
+                description=anime["description"],
+                color=discord.Color.blue(),
+            )
+            embed.set_thumbnail(url=anime["coverImage"]["large"])
+            embed.add_field(name="Type", value=anime["type"], inline=True)
+            embed.add_field(name="Status", value=anime["status"], inline=True)
+            embed.add_field(name="Episodes", value=anime.get("episodes", "N/A"), inline=True)
+            embed.add_field(name="Duration", value=f"{anime.get('duration', 'N/A')} minutes per episode", inline=True)
+            embed.add_field(name="AniList Score", value=f"{anime.get('averageScore', 'N/A')}/100", inline=True)
+            embed.add_field(name="Popularity", value=f"{anime.get('popularity', 'N/A')}", inline=True)
+            embed.add_field(name="Season", value=anime.get("season", "N/A"), inline=True)
+            embed.add_field(name="Format", value=anime.get("format", "N/A"), inline=True)
+            embed.add_field(name="Genres", value=" - ".join(anime.get("genres", [])), inline=False)
+
+            # Add a second clickable link
+            embed.add_field(
+                name="Alternative",
+                value="[MyAnimeList Alternative](https://myanimelist.net/)",
+                inline=False,
+            )
+
+            # Send the Embed
+            await interaction.followup.send(embed=embed)
+
+
+#Manga Command
+
+@bot.tree.command(name="manga", description="Search for a manga by name or ID")
+async def manga(interaction: discord.Interaction, search_criteria: str):
+    await interaction.response.defer()  # Let the user know we're working on it
+
+    # AniList GraphQL query
+    query = """
+    query ($search: String) {
+      Media(search: $search, type: MANGA) {
+        title {
+          romaji
+        }
+        description
+        coverImage {
+          large
+        }
+        siteUrl
+        type
+        status
+        chapters
+        volumes
+        genres
+        popularity
+        averageScore
+        format
+        favourites
+      }
+    }
+    """
+    variables = {"search": search_criteria}
+
+    # Fetch data from AniList
+    async with aiohttp.ClientSession() as session:
+        async with session.post("https://graphql.anilist.co", json={"query": query, "variables": variables}) as response:
+            if response.status != 200:
+                await interaction.followup.send("Failed to fetch data from AniList 😢")
+                return
+
+            data = await response.json()
+            manga = data.get("data", {}).get("Media", None)
+
+            if not manga:
+                await interaction.followup.send("No manga found with that search criteria.")
+                return
+
+            # Build the Embed
+            embed = discord.Embed(
+                title=manga["title"]["romaji"],
+                url=manga["siteUrl"],  # This makes the title clickable
+                description=manga["description"],
+                color=discord.Color.purple(),
+            )
+            embed.set_thumbnail(url=manga["coverImage"]["large"])
+            embed.add_field(name="Type", value=manga["type"], inline=True)
+            embed.add_field(name="Status", value=manga["status"], inline=True)
+            embed.add_field(name="Chapters", value=manga.get("chapters", "N/A"), inline=True)
+            embed.add_field(name="Volumes", value=manga.get("volumes", "N/A"), inline=True)
+            embed.add_field(name="AniList Score", value=f"{manga.get('averageScore', 'N/A')}/100", inline=True)
+            embed.add_field(name="Popularity", value=f"{manga.get('popularity', 'N/A')}", inline=True)
+            embed.add_field(name="Format", value=manga.get("format", "N/A"), inline=True)
+            embed.add_field(name="Genres", value=" - ".join(manga.get("genres", [])), inline=False)
+
+            # Add a second clickable link
+            embed.add_field(
+                name="Alternative",
+                value="[MyAnimeList Alternative](https://myanimelist.net/)",
+                inline=False,
+            )
+
+            # Send the Embed
+            await interaction.followup.send(embed=embed)
+
 
 
 
