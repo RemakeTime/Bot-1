@@ -5191,6 +5191,8 @@ async def on_message(message):
             await message.channel.send(f"{message.author.mention}, that's not a valid option!")
             return
 
+#Color Command
+
 # Helper function to generate a random HEX color
 def generate_random_color():
     return "#{:06x}".format(random.randint(0, 0xFFFFFF))
@@ -5201,9 +5203,13 @@ def get_color_name(hex_color):
         # Try to get the exact color name
         color_name = webcolors.hex_to_name(hex_color)
     except ValueError:
-        # If no exact match, find the closest named color
-        closest_color_name = webcolors.rgb_to_name(webcolors.hex_to_rgb(hex_color), spec='css3')
-        color_name = f"a unique shade, close to {closest_color_name}"
+        # If no exact match, find the closest named color using RGB distance
+        rgb_color = webcolors.hex_to_rgb(hex_color)
+        closest_name = min(
+            webcolors.CSS3_HEX_TO_NAMES,
+            key=lambda name: sum((c1 - c2) ** 2 for c1, c2 in zip(rgb_color, webcolors.hex_to_rgb(name)))
+        )
+        color_name = f"a unique shade, close to {webcolors.CSS3_HEX_TO_NAMES[closest_name]}"
     return color_name
 
 @bot.tree.command(name="color", description="Generates a random color with its HEX code!")
@@ -5222,6 +5228,7 @@ async def color(interaction: discord.Interaction):
 
     # Send the embed
     await interaction.response.send_message(embed=embed)
+
 
 #Anime Command
 
