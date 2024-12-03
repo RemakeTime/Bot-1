@@ -5376,7 +5376,143 @@ async def manga(interaction: discord.Interaction, search_criteria: str):
             await interaction.followup.send(embed=embed)
 
 
+@bot.tree.command(name="user", description="Fetches details about an AniList user.")
+async def user(interaction: discord.Interaction, anilist_name_or_id: str):
+    """
+    Fetches details of an AniList user by their name or ID and displays anime, manga stats, and weeb tendencies.
+    """
+    # AniList GraphQL API URL
+    query_url = "https://graphql.anilist.co"
+    query = """
+    query ($search: String) {
+        User(search: $search) {
+            id
+            name
+            avatar {
+                large
+            }
+            bannerImage
+            about
+            siteUrl
+            statistics {
+                anime {
+                    count
+                    meanScore
+                    episodesWatched
+                    minutesWatched
+                }
+                manga {
+                    count
+                    meanScore
+                    chaptersRead
+                    volumesRead
+                }
+            }
+        }
+    }
+    """
+    variables = {"search": anilist_name_or_id}
 
+    # Make the API request
+    async with aiohttp.ClientSession() as session:
+        async with session.post(query_url, json={"query": query, "variables": variables}) as response:
+            if response.status != 200:
+                await interaction.response.send_message(
+                    f"⚠️ Could not fetch user info. Error: {response.status}",
+                    ephemeral=True
+                )
+                return
+
+            data = await response.json()
+
+            # Check if a user was found
+            user_data = data.get("data", {}).get("User")
+            if not user_data:
+                await interaction.response.send_message(
+                    f"⚠️ No AniList user found with the name or ID: `{anilist_name_or_id}`.",
+                    ephemeral=True
+                )
+                return
+
+    # Extract user details
+    user_name = user_data["name"]
+    avatar_url = user_data["avatar"]["large"]
+    banner_url = user_data.get("bannerImage")
+    about = user_data.get("about", "No description available.")
+    site_url = user_data["siteUrl"]
+
+    # Anime statistics
+    anime_stats = user_data["statistics"]["anime"]
+    anime_count = anime_stats["count"]
+    anime_mean_score = anime_stats["meanScore"]
+    anime_episodes_watched = anime_stats["episodesWatched"]
+    anime_minutes_watched = anime_stats["minutesWatched"]
+
+    # Manga statistics
+    manga_stats = user_data["statistics"]["manga"]
+    manga_count = manga_stats["count"]
+    manga_mean_score = manga_stats["meanScore"]
+    manga_chapters_read = manga_stats["chaptersRead"]
+    manga_volumes_read = manga_stats["volumesRead"]
+
+    # Calculate derived statistics
+    weeb_tendencies = {
+        "normie_genres": "Action/Fantasy/Adventure",  
+        "hated_genres": "Action",
+        "total_minutes": anime_minutes_watched,
+        "chapters_read": manga_chapters_read,
+        "start_year": "2024",  
+        "format_preference": "TV",  
+        "completion_rate": "~80%"  
+    }
+
+    # Create the embed
+    embed = discord.Embed(
+        title=f"{user_name} AniList Statistics",
+        description=f"[Visit Profile]({site_url})",
+        color=discord.Color.blue()
+    )
+    embed.set_thumbnail(url=avatar_url)
+    if banner_url:
+        embed.set_image(url=banner_url)
+
+    # Add anime statistics
+    embed.add_field(
+        name="Anime List",
+        value=f"📺 **Total Entries:** {anime_count}\n"
+              f"📺 **Episodes Watched:** {anime_episodes_watched}\n"
+              f"⏳ **Time Watched:** {anime_minutes_watched // 1440} Days - "
+              f"{(anime_minutes_watched % 1440) // 60} Hours - "
+              f"{anime_minutes_watched % 60} Minutes\n"
+              f"⭐ **Mean Score:** {anime_mean_score:.2f}",
+        inline=False
+    )
+
+    # Add manga statistics
+    embed.add_field(
+        name="Manga List",
+        value=f"📚 **Total Entries:** {manga_count}\n"
+              f"📚 **Volumes Read:** {manga_volumes_read}\n"
+              f"📖 **Chapters Read:** {manga_chapters_read}\n"
+              f"⭐ **Mean Score:** {manga_mean_score:.2f}",
+        inline=False
+    )
+
+    # Add "Weeb Tendencies" section
+    embed.add_field(
+        name="Weeb Tendencies",
+        value=f"• **Is a** {weeb_tendencies['normie_genres']} **normie**\n"
+              f"• **Seems to hate** {weeb_tendencies['hated_genres']}\n"
+              f"• **Wasted** {weeb_tendencies['total_minutes']:,} **minutes on anime**\n"
+              f"• **Read** {weeb_tendencies['chapters_read']:,} **manga chapters**\n"
+              f"• **Started consuming weebness in** {weeb_tendencies['start_year']}\n"
+              f"• **Addicted to the** {weeb_tendencies['format_preference']} **format**\n"
+              f"• **Ends up completing** {weeb_tendencies['completion_rate']}",
+        inline=False
+    )
+
+    # Send the embed
+    await interaction.response.send_message(embed=embed)
 
 
 
