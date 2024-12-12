@@ -5375,6 +5375,7 @@ async def manga(interaction: discord.Interaction, search_criteria: str):
 
             await interaction.followup.send(embed=embed)
 
+# /user command
 
 @bot.tree.command(name="user", description="Fetches details about an AniList user.")
 async def user(interaction: discord.Interaction, anilist_name_or_id: str):
@@ -5514,10 +5515,35 @@ async def user(interaction: discord.Interaction, anilist_name_or_id: str):
     # Send the embed
     await interaction.response.send_message(embed=embed)
 
+# /RECOMMEND MOVIE COMMAND
+
+# list of movies/series
+movies = [
+]
 
 
-#---------------------------------------FUN COMMANDS------------------------------------------------------------------------------------------------------------------------
+# Command to recommend a movie or series
+@bot.command(name='recommendmovie')
+async def recommend_movie(ctx):
+    """
+    Recommend a random movie or series from a predefined list.
+    """
+    recommendation = random.choice(movies)
 
+    # Create an embed message
+    embed = discord.Embed(
+        title=recommendation['title'],
+        description=recommendation['description'],
+        url=recommendation['link'],  # Makes the title a clickable link
+        color=discord.Color.purple()
+    )
+    embed.add_field(name="Genre", value=recommendation['genre'], inline=True)
+    embed.add_field(name="Status", value=recommendation['status'], inline=True)
+    embed.add_field(name="Duration", value=recommendation['duration'], inline=True)
+    embed.add_field(name="Platform", value=recommendation['platform'], inline=True)
+
+    embed.set_footer(text="Enjoy your recommendation! 🎥")
+    await ctx.send(embed=embed)
 
 #----------------------------------MODERATION COMMANDS----------------------------------------------------------------------------------------------------------------------
 # Run the bot
